@@ -1,19 +1,23 @@
 # These are things to students should do and will not be uploaded to github
 # Functions that do these things are in helpers.py
-# TODO: create an object for the linkage
+# TODO: create an object for a linkage
+# TODO: create an object for a node
 # TODO: create a parser for the data file
 # TODO: calculate the state of the links (fsolve system)
 
 # Things I need to do
 # DONE: Create a data file format
-# FakedItDone: OpenGL drawer for the linkage state matrix (precalc all states. stop at lockup.)
+# TODO: OpenGL drawer for the linkage state matrix
+# TODO: precalc all states
+# TODO: stop at lockup
 # TODO: A way to actuate the system (change the driven member)
+# TODO:
 
 from OpenGL.GL import *
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QOpenGLWidget, QApplication
 
-# example data for graphing. not to be used
+# example data for graphing. not to be used as actual data.
 import helpers
 
 
@@ -114,6 +118,7 @@ def main():
     print(linkage_data)
     app = QApplication([])
     widget = LinkageOpenGLWidget(linkage_data)
+    widget.resizeGL(100, 100)
     widget.show()
     app.exec_()
 
