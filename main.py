@@ -11,7 +11,12 @@
 # TODO: precalc all states
 # TODO: stop at lockup
 # TODO: A way to actuate the system (change the driven member)
-# TODO:
+# TODO: Take a list of points of the fourbar nodes and draw lines (use Dela's examples/UI)
+# frame number tells how many theta step away from staring theta
+# make a fourbar movie happen
+# TODO: add movable and fixed to the data file
+# TODO: add ability to draw svg like graphics for coupler/statics
+
 
 from OpenGL.GL import *
 from PyQt5.QtCore import QTimer
