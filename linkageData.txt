@@ -7,10 +7,10 @@
 
 # each line stands alone, and there is no required ORDER to the file
 
-# identifier, ID, node type, node x, node y, coupler connection 1, coupler connection 2
+# identifier, ID, node type, node x, node y
 
 node, 1, driver, 0, 0
 node, 2, bar, 0, 1
 node, 3, bar, 3, 3
 node, 4, static, 3, 0
-node, 5, couplerpoint, 2, 1, 3, 4
+node, 5, couplerpoint, 2, 1
