@@ -13,4 +13,5 @@ node, 1, driver, 0, 0
 node, 2, bar, 0, 1
 node, 3, bar, 3, 3
 node, 4, static, 3, 0
-node, 5, couplerpoint, 2, 1
+# TODO: worry about using coupler point later
+# node, 5, couplerpoint, 2, 1

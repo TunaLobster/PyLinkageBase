@@ -1,21 +1,21 @@
 # These are things to students should do and will not be uploaded to github
-# Functions that do these things are in helpers.py
-# TODO: create an object for a linkage
-# TODO: create an object for a node
-# TODO: create a parser for the data file
-# TODO: calculate the state of the links (fsolve system)
+# Functions that do these things are in FourBar.py
+# DONE: create an object for a node
+# DONE: create an object for a linkage
+# DONE: create a parser for the data file
+# DONE: calculate the state of the links (fsolve system)
 
 # Things I need to do
-# DONE: Create a data file format
+# TODO: make a fourbar movie happen ASAP
+# TODO: Update data file format
 # TODO: OpenGL drawer for the linkage state matrix
 # TODO: precalc all states
-# TODO: stop at lockup
-# TODO: A way to actuate the system (change the driven member)
+# DONE: stop at lockup (sort of done. ValueError will be raised. It seems like fsolve plows through the optimization.)
+# DONE: A way to actuate the system (change the driven member) changes by del_theta each call to calc_motion
 # TODO: Take a list of points of the fourbar nodes and draw lines (use Dela's examples/UI)
 # frame number tells how many theta step away from staring theta
-# make a fourbar movie happen
 # TODO: add movable and fixed to the data file
-# TODO: add ability to draw svg like graphics for coupler/statics
+# TODO: add ability to draw svg like graphics for coupler/statics (stretch right now)
 
 
 import numpy as np
@@ -27,8 +27,8 @@ from OpenGL_2D_class import gl2D
 from OpenGL_2D_ui import Ui_Dialog
 
 
-# example data for graphing. not to be used as actual data.
-# import helpers
+# TODO: actually use the code the students would write
+# import FourBar
 
 
 class main_window(QDialog):
@@ -88,8 +88,7 @@ class main_window(QDialog):
             draglist = [[self.circle1x, self.circle1y],
                         [self.circle2x, self.circle2y]]
             near = 0.1  # define an acceptable mouse distance for dragging
-            self.glwindow1.glStartDragging(self.DraggingCallback, draglist, near,
-                                           handlesize=0.06, handlewidth=3, handlecolor=[1, 0, 0])
+            self.glwindow1.glStartDragging(self.DraggingCallback, draglist, near, handlesize=0.06, handlewidth=3, handlecolor=[1, 0, 0])
 
         else:  # stop dragging
             self.glwindow1.glStopDragging()
@@ -103,8 +102,7 @@ class main_window(QDialog):
         nframes = 121
         frames = np.linspace(0, nframes - 1, nframes)
 
-        self.glwindow1.glStartAnimation(self.AnimationCallback, frames,
-                                        reverse=True, repeat=False)
+        self.glwindow1.glStartAnimation(self.AnimationCallback, frames, reverse=True, repeat=False)
 
     def StopAnimation(self):  # a button to Stop GL Animati0n
         self.glwindow1.glStopAnimation()
@@ -145,23 +143,23 @@ class main_window(QDialog):
         # gl2DCircle(self.circle1x, self.circle1y, self.circle1radius)
 
         # Draw 3 connected lines
-        glColor3f(0.9, 0.9, 0.25)
-        glLineWidth(4)
-        glBegin(GL_LINE_STRIP)  # begin drawing connected lines
-        # use GL_LINE for drawing a series of disconnected lines
-        glVertex2f(-2, 0)
-        glVertex2f(-2, 2)
-        glVertex2f(2, 2)
-        glVertex2f(2, 0)
-        glEnd()
+        # glColor3f(0.9, 0.9, 0.25)
+        # glLineWidth(4)
+        # glBegin(GL_LINE_STRIP)  # begin drawing connected lines
+        # # use GL_LINE for drawing a series of disconnected lines
+        # glVertex2f(-2, 0)
+        # glVertex2f(-2, 2)
+        # glVertex2f(2, 2)
+        # glVertex2f(2, 0)
+        # glEnd()
 
         # Draw Circle 2
         # glColor3f(0.8, 1, 0.8)
         # glLineWidth(1.5)
         # gl2DCircle(self.circle2x, self.circle2y, self.circle2radius, fill=True)
 
-        # call DrawLines
-        self.DrawLines()
+        # call DrawBars
+        self.DrawBars(vertexlist)
 
         # if dragging, let GL show dragging handles
         self.glwindow1.glDraggingShowHandles()
@@ -183,25 +181,35 @@ class main_window(QDialog):
             draglist[index][0] = x  # only save the x value to the draglist
         # end method
 
-    def DrawLines(self):
+    def DrawBars(self, vertexlist):
         # Draw some lines
+        # Set color and line width
         glColor3f(0, 0.90, 0.25)
         glLineWidth(4)
-        glBegin(GL_LINE_STRIP)  # begin drawing connected lines
-        # use GL_LINE for drawing a series of disconnected lines
-        glVertex2f(0, 0)
-        glVertex2f(0, 1)
-        glVertex2f(1, 1)
-        glVertex2f(1, 0)
-        glVertex2f(0, 0)
-        glEnd()
+        for i in range(len(vertexlist)-1):
+            self.draw_line(vertexlist[i], vertexlist[i+1])
+        # glBegin(GL_LINE_STRIP)  # begin drawing connected lines
+        # # use GL_LINE for drawing a series of disconnected lines
+        # glVertex2f(0, 0)
+        # glVertex2f(0, 1)
+        # glVertex2f(1, 1)
+        # glVertex2f(1, 0)
+        # glVertex2f(0, 0)
+        # glEnd()
         # change the color and linewidth
-        glColor3f(0.75, 0.15, 0.250)
-        glLineWidth(8)
-        glBegin(GL_LINE_STRIP)  # begin drawing connected lines
-        glVertex2f(0, 1)
-        glVertex2f(0.5, 1.7)
-        glVertex2f(1, 1)
+        # glColor3f(0.75, 0.15, 0.250)
+        # glLineWidth(8)
+        # glBegin(GL_LINE_STRIP)  # begin drawing connected lines
+        # glVertex2f(0, 1)
+        # glVertex2f(0.5, 1.7)
+        # glVertex2f(1, 1)
+        # glEnd()
+
+    def draw_line(self, vertex1, vertex2):
+        # glBegin and glEnd have been deprecated. VertexBufferObject would the replacement.
+        glBegin(GL_LINE)
+        glVertex2f(vertex1[0], vertex1[1])
+        glVertex2f(vertex2[0], vertex2[1])
         glEnd()
 
 
