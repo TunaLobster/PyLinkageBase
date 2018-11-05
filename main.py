@@ -15,6 +15,8 @@
 # DONE: A way to actuate the system (change the driven member) changes by del_theta each call to calc_motion
 # DONE: Take a list of points of the fourbar nodes and draw lines (use Dela's examples/UI)
 # frame number tells how many theta step away from staring theta
+# DONE: add drag points to the drawing.
+# TODO: make nodes draggable
 # TODO: add movable and fixed to the data file
 # TODO: add ability to draw svg like graphics for coupler/statics (stretch right now)
 # TODO: add coupler point of interest
@@ -39,22 +41,9 @@ class MainWindow(QDialog):
         # setup the GUI
         self.ui.setupUi(self)
 
-        # define any data (including object variables) your program might need
-        self.showlabels = True
-
-        # self.circle1x = -1
-        # self.circle1y = -0.5
-        # self.circle1radius = 0.2
-        #
-        # self.save_circle1x = 0
-        # self.save_circle1y = 0
-        #
-        # self.circle2x = -1
-        # self.circle2y = 2
-        # self.circle2radius = 0.15
-
         # create and setup the GL window object
         self.glwindow1 = None
+
         self.setupGLWindows()
 
         # and define any Widget callbacks or other necessary setup
@@ -76,10 +65,9 @@ class MainWindow(QDialog):
         self.ui.pushButton_Exit.clicked.connect(self.ExitApp)
         self.ui.pushButton_Animate.clicked.connect(self.StartAnimation)
         self.ui.pushButton_StopAnimation.clicked.connect(self.StopAnimation)
-        self.ui.pushButton_ResumeAnimation.clicked.connect(self.ResumeAnimation)
+        self.ui.pushButton_PauseResumeAnimation.clicked.connect(self.PauseResumeAnimation)
         self.ui.horizontalSlider_zoom.valueChanged.connect(self.glZoomSlider)
-        self.ui.horizontalSlider_rotate.valueChanged.connect(self.glRotateSlider)
-        self.ui.checkBox_Dragging.stateChanged.connect(self.DraggingToggle)
+        self.ui.checkBox_Dragging.stateChanged.connect(self.DraggingOnOff)
 
     # Widget callbacks start here
 
@@ -88,37 +76,26 @@ class MainWindow(QDialog):
         self.glwindow1.glZoom(zoomval)  # set the zoom value
         self.glwindow1.glUpdate()  # update the GL image
 
-    def glRotateSlider(self):  # I used a slider to control GL rotation
-        angle = -float(self.ui.horizontalSlider_rotate.value())
-        self.glwindow1.glRotate(angle, 0.5, 0.5)  # set the rotation angle and centerpoint
-        self.glwindow1.glUpdate()  # update the GL image
-
-    def DraggingToggle(self):  # used a checkbox to Enable GL Dragging
+    def DraggingOnOff(self):  # used a checkbox to Enable GL Dragging
         if self.ui.checkBox_Dragging.isChecked():  # start dragging
-            # put locations of "draggable" things into a  list
-            draglist = [[self.circle1x, self.circle1y],
-                        [self.circle2x, self.circle2y]]
-            near = 0.1  # define an acceptable mouse distance for dragging
-            self.glwindow1.glStartDragging(self.DraggingCallback, draglist, near, handlesize=0.06, handlewidth=3,
-                                           handlecolor=[1, 0, 0])
-
+            self.StartStopDragging(True)  # StartStopDragging is defined below
         else:  # stop dragging
-            self.glwindow1.glStopDragging()
+            self.StartStopDragging(False)
 
     def StartAnimation(self):  # a button to start GL Animation
         # a playlist is a list values defining the look of the picture for
         # each FRAME in the animation.
 
         nframes = len(self.vertexlist)
-        frames = np.linspace(0, nframes - 1, nframes)
+        # frames = np.linspace(0, nframes - 1, nframes)
 
-        self.glwindow1.glStartAnimation(self.AnimationCallback, frames, reverse=True, repeat=False)
+        self.glwindow1.glStartAnimation(self.AnimationCallback, nframes, reverse=True, repeat=False, RestartDraggingCallback=self.StartStopDragging)
 
     def StopAnimation(self):  # a button to Stop GL Animati0n
         self.glwindow1.glStopAnimation()
 
-    def ResumeAnimation(self):  # a button to Resume GL Animation
-        self.glwindow1.glResumeAnimation()
+    def PauseResumeAnimation(self):  # a button to Resume GL Animation
+        self.glwindow1.glPauseResumeAnimation()
 
     def ExitApp(self):
         app.exit()
@@ -126,10 +103,10 @@ class MainWindow(QDialog):
     # Setup OpenGL Drawing and Viewing
 
     def setupGLWindows(self):  # setup all GL windows
-        # send it the   GL Widget     and the drawing Callback function
+        # send it the GL Widget and the drawing Callback function
         self.glwindow1 = gl2D(self.ui.openGLWidget, self.DrawingCallback)
 
-        # set the drawing space:    xmin  xmax  ymin   ymax
+        # set the drawing space: xmin, xmax, ymin, ymax
         self.glwindow1.setViewSize(-3, 3, -1, 3, allowDistortion=False)
 
         # Optional: Setup GL Mouse Functionality
@@ -152,7 +129,7 @@ class MainWindow(QDialog):
         # call DrawBars
         self.DrawBars()
 
-        # if dragging, let GL show dragging handles
+        # if using dragging, let GL show dragging handles
         self.glwindow1.glDraggingShowHandles()
 
     def AnimationCallback(self, frame, nframes):
@@ -162,9 +139,11 @@ class MainWindow(QDialog):
         # change object properties of each node here
         app.processEvents()  # absolutely required!!!
 
-    def DraggingCallback(self, x, y, draglist, index):
+    def draggingCallback(self, x, y, draglist, i):
         # TODO: Change for linkage nodes
-        pass
+        # pass
+        self.linkage_data.nodes[i].x = x
+        self.linkage_data.nodes[i].y = y
         # if index == 0:  # mouse near circle 1
         #     self.circle1x, self.circle1y = [x, y]  # change circle 1 data
         #     draglist[index] = [x, y]  # save both x and y back to the draglist
@@ -173,6 +152,17 @@ class MainWindow(QDialog):
         #     self.circle2x = x  # only change the  x-value for circle 2
         #     draglist[index][0] = x  # only save the x value to the draglist
         # end method
+
+    def StartStopDragging(self, start):  # needs problem specific customization!
+        if start is True:
+            draglist = self.draw_bar_list
+            near = 0.1  # define an acceptable mouse distance for dragging
+            self.glwindow1.glStartDragging(self.draggingCallback, draglist, near,
+                                           handlesize=.05, handlewidth=.005, handlecolor=[1, 0, 0])
+            self.ui.checkBox_Dragging.setChecked(True)
+        elif start is False:
+            self.glwindow1.glStopDragging()
+            self.ui.checkBox_Dragging.setChecked(False)
 
     def DrawBars(self):
         # Draw some lines

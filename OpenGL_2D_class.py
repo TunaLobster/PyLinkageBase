@@ -1,3 +1,4 @@
+import sys
 from time import sleep
 
 import numpy as np
@@ -8,6 +9,7 @@ from PyQt5.QtCore import Qt, QEvent
 
 
 class gl2D():
+
     def __init__(self, glWidget, drawCallback,
                  allowDistortion=False,
                  xmin=0, xmax=1, ymin=0, ymax=1,
@@ -42,13 +44,15 @@ class gl2D():
         # Animation control Data
         self.glAnimationIsRunning = False  # are we already running animation?
         self.glAnimationCallback = None  # the function that will draw
-        self.glAnimationPlayList = None  # animation control params to send to the callbaxk
-        self.glAnimationPlayListIndex = 0  # where are we right now
+        self.glAnimationFrameValues = None  # animation control params to send to the callbaxk
+        self.glAnimationCurrentFrame = 0  # where are we right now
         self.glAnimationPlayListLength = 0
         self.glAnimationDelayTime = 0  # delay between frames (in seconds)
         self.glAnimationRepeat = False  # repeat when the end is reached?
         self.glAnimationReverse = False  # reverse when the end is reached?
         self.glAnimationReversed = False  # are we currently moving in reverse?
+        self.glAnimationReset = True  # reset the animation at the end
+        self.glRestartDraggingCallback = None
 
         # Mouse Interaction Data
         self.glMouseTextBox = None
@@ -58,7 +62,7 @@ class gl2D():
         self.glDragCallback = None
         self.glDraggingActive = False
         self.glDraggingHandleSize = 0.05
-        self.glDraggingHandleWidth = 2
+        self.glDraggingHandleWidth = 0.01
         self.glDraggingHandleColor = [1, 1, 1]
 
         self.glWindowWidget.initializeGL = self.glInit  # initialize callback
@@ -268,42 +272,66 @@ class gl2D():
 
     # def glEnableMouseInteraction(self):
 
-    def glStartAnimation(self, drawfunc, playList,
-                         delaytime=0, repeat=False, reverse=False):
+    def glStartAnimation(self, drawfunc, nframes,
+                         delaytime=0, repeat=False, reverse=False, reset=True,
+                         RestartDraggingCallback=None):
 
         if self.glAnimationIsRunning is True:  return  # don't want multiple copies
 
         # save the Animation parameters
         self.glAnimationCallback = drawfunc
-        self.glAnimationPlayList = playList
-        self.glAnimationPlayListIndex = 0
-        self.glAnimationPlayListMaxIndex = len(playList)
+        self.glAnimationNFrames = nframes
+        self.glAnimationFrameValues = np.linspace(0, nframes - 1, nframes)
+        self.glAnimationCurrentFrame = 0
         self.glAnimationDelayTime = delaytime
         self.glAnimationRepeat = repeat
         self.glAnimationReverse = reverse
+        self.glAnimationReset = reset
         self.glAnimationReversed = False
+
+        # handle Dragging interaction with animation
+        if self.glDraggingActive is True:
+            self.glRestartDraggingCallback = RestartDraggingCallback
+        else:
+            self.glRestartDraggingCallback = None
+
+        if self.glRestartDraggingCallback is not None:
+            self.glRestartDraggingCallback(False)
 
         # Start the animation with current parameters
         self.glAnimationIsRunning = True
         self.glAnimate()
         self.glAnimationIsRunning = False
 
-    def glResumeAnimation(self):
+    def glStopAnimation(self):
+        if self.glAnimationCallback is None:  return
+        if self.glAnimationReset is True:  # reset the image to the first frame
+            self.glAnimationCallback(0, self.glAnimationNFrames)  # call the callback function
+
+        if self.glRestartDraggingCallback is not None:
+            self.glRestartDraggingCallback(True)
+            self.glRestartDraggingCallback = None
+
+        self.glAnimationIsRunning = False  # animation ended
+        self.glAnimationCallback = None  #
+
+        self.glUpdate()
+
+    def glPauseResumeAnimation(self):
 
         if self.glAnimationCallback is None:  return
 
         # Start the animation with current parameters
-        self.glAnimationIsRunning = True
-        self.glAnimate()
-        self.glAnimationIsRunning = False
+        if self.glAnimationIsRunning is True:
+            self.glAnimationIsRunning = False
+        else:
+            self.glAnimationIsRunning = True
+            self.glAnimate()
 
     def glAnimate(self):
 
-        Dragging = self.glDraggingActive
-        self.glDraggingActive = False
-
         # use shorter names ... less typing
-        maxIndex = self.glAnimationPlayListMaxIndex
+        maxIndex = self.glAnimationNFrames
         repeat = self.glAnimationRepeat
         reverse = self.glAnimationReverse
 
@@ -314,48 +342,50 @@ class gl2D():
             step = 1
             theEnd = maxIndex
 
-        while self.glAnimationPlayListIndex != theEnd:
+        while self.glAnimationCurrentFrame != theEnd:
 
             if self.glAnimationIsRunning is False:
-                self.glDraggingActive = Dragging
                 return  # the animation was stopped
 
-            sendData = self.glAnimationPlayList[self.glAnimationPlayListIndex]
-
-            self.glAnimationCallback(sendData, self.glAnimationPlayListMaxIndex)  # call the callback function
+            self.glAnimationCallback(self.glAnimationCurrentFrame,
+                                     self.glAnimationNFrames)  # call the callback function
             self.glUpdate()
 
             sleep(self.glAnimationDelayTime)  # and sleep as directed
 
-            self.glAnimationPlayListIndex += step
+            self.glAnimationCurrentFrame += step
 
-            if self.glAnimationPlayListIndex == theEnd:  # at the end, what now??
+            if self.glAnimationCurrentFrame == theEnd:  # at the end, what now??
 
                 if reverse is True:
                     if self.glAnimationReversed is False:  # then move in reverse
                         step = -1
                         theEnd = -1
-                        self.glAnimationPlayListIndex = maxIndex - 2  # dont repeat the last step
+                        self.glAnimationCurrentFrame = maxIndex - 2  # dont repeat the last step
                         self.glAnimationReversed = True
 
                 if repeat is True:  # want to repeat forever!
                     if reverse is False:  # then we can't be at the beginning point
-                        self.glAnimationPlayListIndex = 0  # start over
+                        self.glAnimationCurrentFrame = 0  # start over
                     elif reverse is True:  # animation is reversible
-                        if self.glAnimationPlayListIndex == -1:  # back at the beginning
+                        if self.glAnimationCurrentFrame == -1:  # back at the beginning
                             step = 1
                             theEnd = maxIndex
-                            self.glAnimationPlayListIndex = 0
+                            self.glAnimationCurrentFrame = 0
                             self.glAnimationReversed = False
         # end while loop
-        self.glAnimationIsRunning = False  # animation ended
-        self.glDraggingActive = Dragging
 
-        return
+        self.glStopAnimation()  # animation is over
 
-    def glStopAnimation(self):
-        self.glAnimationIsRunning = False  # animation ended
+
 # end of the GL2D class definition
+
+
+# a few useful drawing functions
+def gl2DText(text, x, y, font=GLUT_BITMAP_HELVETICA_18):
+    glRasterPos2d(x, y)
+    for ch in text:
+        glutBitmapCharacter(font, ord(ch))
 
 
 def gl2DCircle(xcenter, ycenter, radius, fill=False, faces=24):
