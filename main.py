@@ -1,7 +1,7 @@
 # These are things to students should do and will not be uploaded to github
 # Functions that do these things are in FourBar.py
 # DONE: create an object for a node
-# TODO: Fix the node object (coordinates as 1 property)
+# TODO: Fix the node object (coordinates as 1 property) (it's fine for now)
 # DONE: create an object for a linkage
 # DONE: create a parser for the data file
 # DONE: calculate the state of the links (fsolve system)
@@ -14,16 +14,16 @@
 # DONE: stop at lockup (sort of done. ValueError will be raised. It seems like fsolve plows through the optimization.)
 # DONE: A way to actuate the system (change the driven member) changes by del_theta each call to calc_motion
 # DONE: Take a list of points of the fourbar nodes and draw lines (use Dela's examples/UI)
-# frame number tells how many theta step away from staring theta
+# DONE: frame number tells how many theta step away from staring theta (1 frame = 1 deg right now)
 # DONE: add drag points to the drawing.
-# TODO: make nodes draggable
+# DONE: make nodes draggable
+# TODO: recalc after moving
 # TODO: add movable and fixed to the data file
 # TODO: add ability to draw svg like graphics for coupler/statics (stretch right now)
 # TODO: add coupler point of interest
 # TODO: add tracing of coupler poi
 
 
-import numpy as np
 from OpenGL.GL import *
 from OpenGL.GLUT import *
 from PyQt5.QtWidgets import QDialog, QApplication
@@ -55,8 +55,9 @@ class MainWindow(QDialog):
         self.vertexlist = list()
         # make sure given data is good by calculating initial state
         # will raise ValueError if it is not solve. fsolve does not raise an error
-        self.calc_linkage_motion()
+        self.calc_linkage_motion(30, 120)
         self.draw_bar_list = self.vertexlist[0]
+        self.moved_nodes = False
 
         # show the GUI
         self.show()
@@ -89,7 +90,16 @@ class MainWindow(QDialog):
         nframes = len(self.vertexlist)
         # frames = np.linspace(0, nframes - 1, nframes)
 
-        self.glwindow1.glStartAnimation(self.AnimationCallback, nframes, reverse=True, repeat=False, RestartDraggingCallback=self.StartStopDragging)
+        # take the currently drawn points and run them through the FourBar.py module
+        if self.moved_nodes:
+            for i in range(len(self.draw_bar_list)):
+                self.linkage_data.nodes[i].x = self.draw_bar_list[i][0]
+                self.linkage_data.nodes[i].y = self.draw_bar_list[i][1]
+            self.calc_linkage_motion(20, 30)
+        self.moved_nodes = False
+
+        self.glwindow1.glStartAnimation(self.AnimationCallback, nframes, reverse=True, repeat=False,
+                                        RestartDraggingCallback=self.StartStopDragging)
 
     def StopAnimation(self):  # a button to Stop GL Animati0n
         self.glwindow1.glStopAnimation()
@@ -124,26 +134,26 @@ class MainWindow(QDialog):
         # this is what actually draws the initial picture
         # using data to control what is drawn
 
-        # range is the thetas of interest
-
         # call DrawBars
         self.DrawBars()
 
         # if using dragging, let GL show dragging handles
         self.glwindow1.glDraggingShowHandles()
 
-    def AnimationCallback(self, frame, nframes):
+    def AnimationCallback(self, frame: int, nframes: int):
         # a callback function for frames of animation
         # then, call glUpdate() to update the image
         self.draw_bar_list = self.vertexlist[int(frame)]
         # change object properties of each node here
         app.processEvents()  # absolutely required!!!
 
-    def draggingCallback(self, x, y, draglist, i):
+    def draggingCallback(self, x: float, y: float, draglist: list, i: int):
         # TODO: Change for linkage nodes
         # pass
-        self.linkage_data.nodes[i].x = x
-        self.linkage_data.nodes[i].y = y
+        # self.linkage_data.nodes[i].x = x
+        # self.linkage_data.nodes[i].y = y
+        self.draw_bar_list[i] = [x, y]
+        self.moved_nodes = True
         # if index == 0:  # mouse near circle 1
         #     self.circle1x, self.circle1y = [x, y]  # change circle 1 data
         #     draglist[index] = [x, y]  # save both x and y back to the draglist
@@ -153,7 +163,7 @@ class MainWindow(QDialog):
         #     draglist[index][0] = x  # only save the x value to the draglist
         # end method
 
-    def StartStopDragging(self, start):  # needs problem specific customization!
+    def StartStopDragging(self, start: bool):  # needs problem specific customization!
         if start is True:
             draglist = self.draw_bar_list
             near = 0.1  # define an acceptable mouse distance for dragging
@@ -182,8 +192,8 @@ class MainWindow(QDialog):
         self.linkage_data = FourBar.Linkage(r'linkageData.txt')
         self.linkage_data.parse_data()
 
-    def calc_linkage_motion(self):
-        for x in range(30, 120):
+    def calc_linkage_motion(self, start_theta: int, stop_theta: int):
+        for x in range(start_theta, stop_theta):
             self.linkage_data.calc_motion(x)
             templist = list()
             for node in self.linkage_data.nodes:
